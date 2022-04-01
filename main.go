@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"html/template"
@@ -61,7 +62,7 @@ func init() {
 	logger.SetOutput(os.Stdout)
 
 	// Only log the warning severity or above.
-	logger.SetLevel(logrus.InfoLevel)
+	logger.SetLevel(logrus.DebugLevel)
 	//
 	logger.SetFormatter(
 		&logrus.TextFormatter{TimestampFormat: "2006/01/02 - 15:04:05",
@@ -119,43 +120,43 @@ func GetCPULoad(interval time.Duration) {
 //
 // If you don´t listen to those messages, the Programm will try to write,
 // on a dead connection and fail.
-func listen_function(c *websocket.Conn, message chan []byte, C_close chan bool) {
-	c.SetReadLimit(maxMessageSize)
-	c.SetReadDeadline(time.Now().Add(pongWait))
-	c.SetPongHandler(func(string) error { c.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+func MessageReceiver(ctx context.Context, conn *websocket.Conn, close chan bool) {
+	defer func() {
+		logger.Debug("Listen Function exited.")
+	}()
 
+	conn.SetReadLimit(maxMessageSize)
+	conn.SetReadDeadline(time.Now().Add(pongWait))
+	conn.SetPongHandler(func(string) error { conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+
+	// Technically, this does not need to be a loop.
 	for {
-		_, mess, err := c.ReadMessage()
-
+		_, _, err := conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				logger.Info("IsUnexpectedCloseError", err)
-			}
-
 			logger.Info("Websocket Connection closed.")
 
-			message <- mess
-			close(message)
-			C_close <- true
-			close(C_close)
-
+			close <- true
 			return
 		}
 	}
 }
 
-// write_function writes to the Connection, at specified interval.
+// MessageWriter writes to the Connection, at specified interval.
 //
 // If the connection is closed on the client side, the goroutine is notified
 // via the C_close Channel and returns.
 // Additionally it regularly writes a PingMessage to the connection.
-func write_function(c *websocket.Conn, poll *time.Ticker, ticker *time.Ticker, C_close chan bool) {
+func MessageWriter(ctx context.Context, conn *websocket.Conn, poll *time.Ticker, pong *time.Ticker) {
+	defer func() {
+		logger.Debug("Write Function exited.")
+	}()
+
 	for {
 		select {
 		case <-poll.C:
-			c.SetWriteDeadline(time.Now().Add(writeWait))
+			conn.SetWriteDeadline(time.Now().Add(writeWait))
 
-			w, err := c.NextWriter(websocket.TextMessage)
+			w, err := conn.NextWriter(websocket.TextMessage)
 			if err != nil {
 				logger.Warn("c.NextWriter did not work", err)
 			}
@@ -169,24 +170,25 @@ func write_function(c *websocket.Conn, poll *time.Ticker, ticker *time.Ticker, C
 			if err := w.Close(); err != nil {
 				logger.Warn("io.Writer Close did not work", err)
 			}
-		case <-ticker.C:
 
-			c.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := c.WriteMessage(websocket.PingMessage, nil); err != nil {
+		case <-pong.C:
+
+			conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				logger.Warn("c.WriteMessage did not work", err)
 			}
-		case <-C_close:
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-// Websocket Connection handler.
-//
-// TODO implement a way to stop the listen_function when write_functions gets an error.
+// echo implements to Websocket Logik.
+// So far I could not come up with an Idea how to stop MessageReceiver.
+// Dont know how if thats bad...
 func echo(w http.ResponseWriter, r *http.Request) {
 
-	c, err := upgrader.Upgrade(w, r, nil)
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		logger.Warn("Error while upgrading", err)
 		return
@@ -194,24 +196,29 @@ func echo(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("WebsocketConnection established by:", r.RemoteAddr)
 
-	ticker := time.NewTicker(pingPeriod)
+	// Used to stop MessageWriter
+	ctx, cancelfunc := context.WithCancel(r.Context())
+	// Channel for PongMessages
+	pong := time.NewTicker(pingPeriod)
+	// Channel for Polling the CPU/Mem Stats
 	poll := time.NewTicker(*pollPeriod)
-
-	message := make(chan []byte)
-
-	C_close := make(chan bool)
+	// Channel to notify this function if Conn closed on Client Side
+	client_close := make(chan bool)
 
 	defer func() {
-		ticker.Stop()
+		cancelfunc()
+		pong.Stop()
 		poll.Stop()
-		c.Close()
+		conn.Close()
+		close(client_close)
 
 	}()
 
-	go listen_function(c, message, C_close)
-	go write_function(c, poll, ticker, C_close)
+	go MessageReceiver(ctx, conn, client_close)
+	go MessageWriter(ctx, conn, poll, pong)
 
-	<-message
+	// Blocking until MessageReceiver gets notified about Closed Connection.
+	<-client_close
 }
 
 func home(w http.ResponseWriter, r *http.Request) {

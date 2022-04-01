@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"os"
+	"runtime"
 	"time"
 
 	_ "net/http/pprof"
@@ -47,15 +48,17 @@ var (
 )
 
 type PC_stats struct {
-	CPU_Load  float64   `json:"cpu_load"`
-	Mem_Load  float64   `json:"mem_load"`
-	Timestamp time.Time `json:"timestamp"`
+	CPU_Load   float64   `json:"cpu_load"`
+	Mem_Load   float64   `json:"mem_load"`
+	Goroutines int       `json:"goroutines"`
+	Timestamp  time.Time `json:"timestamp"`
 }
 
 func init() {
 	// Starte die Goroutines welche die Daten holen
 	go GetCPULoad(*pollPeriod)
 	go GetMemLoad(*pollPeriod)
+	go GetGoroutines(*pollPeriod)
 
 	// Output to stdout instead of the default stderr
 	// Can be any io.Writer, see below for File example
@@ -112,6 +115,19 @@ func GetCPULoad(interval time.Duration) {
 				panic(err)
 			}
 			Stats.CPU_Load = load[0]
+		}
+	}
+}
+
+// GetCPUoad changes PC_StatsCPU_Load each interval.
+func GetGoroutines(interval time.Duration) {
+	ticker := time.NewTicker(interval)
+
+	for {
+		select {
+		case <-ticker.C:
+			goes := runtime.NumGoroutine()
+			Stats.Goroutines = goes
 		}
 	}
 }
@@ -238,6 +254,7 @@ var homeTemplate = template.Must(template.New("").Parse(`
 <body>
 <div id="chart_div"></div>
 <div id="chart_mem"></div>
+<div id="chart_go"></div>
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <script>
 		var data;
@@ -249,6 +266,11 @@ var homeTemplate = template.Must(template.New("").Parse(`
 		var mem_chart;
 		var mem_ws_data;
 		var mem_index = 0;
+
+		var go_data;
+		var go_chart;
+		var go_ws_data;
+		var go_index = 0;
 
 		// create options object with titles, colors, etc.
 		let options = {
@@ -272,6 +294,17 @@ var homeTemplate = template.Must(template.New("").Parse(`
 			}
 		};
 		
+		// create options object with titles, colors, etc.
+		let go_options = {
+			title: "Num Goroutines",
+			hAxis: {
+				title: "Time"
+			},
+			vAxis: {
+				title: "Usage"
+			}
+		};
+
 		ws = new WebSocket("ws://" + document.location.host + "/echo");
 
 		ws.onopen = function(evt) {
@@ -285,9 +318,10 @@ var homeTemplate = template.Must(template.New("").Parse(`
 
 		// Listen for messages
 		ws.addEventListener('message', function (event) {
-			// document.getElementById("Load").innerText = event.data
+			
 			console.log('Message from server ', JSON.parse(event.data));
 			ws_data = JSON.parse(event.data)
+
 			data.addRow([index, ws_data.cpu_load]);
 			chart.draw(data, options);
 			index++;
@@ -295,6 +329,10 @@ var homeTemplate = template.Must(template.New("").Parse(`
 			mem_data.addRow([mem_index, ws_data.mem_load]);
 			mem_chart.draw(mem_data, mem_options);
 			mem_index++;
+
+			go_data.addRow([go_index, ws_data.goroutines]);
+			go_chart.draw(go_data, go_options);
+			go_index++;
 
 		});
 
@@ -320,28 +358,27 @@ var homeTemplate = template.Must(template.New("").Parse(`
                 ["Year", "Mem Usage"],
                 [0, 100]
             ]);
+			// create data object with default value
+            go_data = google.visualization.arrayToDataTable([
+                ["Year", "Goroutines"],
+                [0, 100]
+            ]);
 
-            // draw chart on load
-            chart = new google.visualization.LineChart(
-                document.getElementById("chart_div")
-            );
-            chart.draw(data, options);
-
+			
 			chart = new google.visualization.LineChart(
                 document.getElementById("chart_div")
             );
             chart.draw(data, options);
 
-			// draw chart on load
-            mem_chart = new google.visualization.LineChart(
-                document.getElementById("chart_mem")
-            );
-            mem_chart.draw(mem_data, options);
-
 			mem_chart = new google.visualization.LineChart(
                 document.getElementById("chart_mem")
             );
             mem_chart.draw(mem_data, options);
+
+			go_chart = new google.visualization.LineChart(
+                document.getElementById("chart_go")
+            );
+            go_chart.draw(mem_data, options);
         }
     </script>
 </body>

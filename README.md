@@ -9,6 +9,7 @@ Compiled binary is <10mb in size and has a small memory/cpu footprint.
  - Websockets
  - Flags
  - Goolge Charts
+ - Github Actions
 
 ## Added Dockerfile for the funsies
 
@@ -24,8 +25,8 @@ Run container with:\
  - -period 1s  -> Changes the Update Speed of the Graph/Websocket
 
 ## Todo
- - Tests!
- - More Infos
- - Change Chart to Running
- - Add better Timestamp
- - ...
+- [ ] Tests!
+- [ ] More Infos
+- [ ] Change Chart to Running
+- [ ] Add better Timestamp
+- [ ] ...

@@ -18,9 +18,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// use default options
-var upgrader = websocket.Upgrader{}
-
 const (
 	// Time allowed to write a message to the peer.
 	writeWait = 10 * time.Second
@@ -36,6 +33,8 @@ const (
 )
 
 var (
+	// use default options
+	upgrader = websocket.Upgrader{}
 	// Addr
 	addr = flag.String("addr", ":8080", "http service address")
 	// PollPeriodFlag
@@ -43,7 +42,7 @@ var (
 
 	// Created Stats Struct.
 	Stats PC_stats
-
+	// logger
 	logger = logrus.New()
 )
 
@@ -238,7 +237,6 @@ func echo(w http.ResponseWriter, r *http.Request) {
 }
 
 func home(w http.ResponseWriter, r *http.Request) {
-
 	// Das hier läuft zweimail weil, /favicon.ico auch hierher geroutete wird.
 	logger.Info("Connection", r.RemoteAddr)
 	homeTemplate.Execute(w, nil)

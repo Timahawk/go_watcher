@@ -1,4 +1,0 @@
-time="2022/04/01 - 13:08:02" level=info msg="Listening on :8080"
-time="2022/04/01 - 13:08:06" level=info msg="Connection127.0.0.1:53280"
-time="2022/04/01 - 13:08:06" level=info msg="WebsocketConnection established by:127.0.0.1:53282"
-time="2022/04/01 - 14:26:11" level=info msg="Websocket Connection closed."

@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"net/url"
 	"testing"
 	"time"
@@ -9,12 +10,23 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+func SetupTestEnv() {
+	http.HandleFunc("/echo", echo)
+	http.HandleFunc("/", home)
+
+	logger.Info("Listening on ", *addr)
+	logger.Fatal(http.ListenAndServe(*addr, nil))
+}
+
 // Tests that maxGos (2500) Connections can be created.
 //
 // The Test stops after 2 Seconds. If no Errors have
 // been generated during that time, the test is OK.
 // Tests only run if Server is started manually...
 func Test_LotsOfConnections(t *testing.T) {
+
+	go SetupTestEnv()
+
 	done := make(chan bool)
 	maxGos := 2500
 

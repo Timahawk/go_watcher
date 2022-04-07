@@ -1,14 +1,14 @@
-package main
+package go_watcher
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/url"
 	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,24 +19,27 @@ func init() {
 	go SetupTestEnv()
 
 	// This is for not Spamming Everything with ConnectionMessages.
-	logger.SetLevel(logrus.WarnLevel)
+	// logger.SetLevel(logrus.WarnLevel)
 }
 
 // SetupTestEnv creates the Server and listens for Requests.
 //
 // Tests can because of this only be run if the Server is stopped.
 func SetupTestEnv() {
-	http.HandleFunc("/echo", echo)
-	http.HandleFunc("/", home)
 
-	logger.Info("Listening on ", *addr)
-	logger.Fatal(http.ListenAndServe(*addr, nil))
+	Start(time.Second)
+
+	http.HandleFunc("/echo", SendUpdates)
+	http.HandleFunc("/", SendTemplate)
+
+	log.Println("Listening on ", "localhost:8080")
+	log.Fatalln(http.ListenAndServe("localhost:8080", nil))
 }
 
 func Test_home(t *testing.T) {
-	assert.HTTPStatusCode(t, home, "GET", "localhost:8080", nil, 200)
+	assert.HTTPStatusCode(t, SendTemplate, "GET", "localhost:8080", nil, 200)
 
-	res := assert.HTTPBody(home, "GET", "localhost:8080", nil)
+	res := assert.HTTPBody(SendTemplate, "GET", "localhost:8080", nil)
 	if res == "" {
 		t.Errorf("Requesting a Body from Home failed.")
 	}

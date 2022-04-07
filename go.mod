@@ -5,7 +5,6 @@ go 1.18
 require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/shirou/gopsutil/v3 v3.22.2
-	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.1
 )
 

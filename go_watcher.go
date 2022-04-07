@@ -1,19 +1,16 @@
-package main
+package go_watcher
 
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"html/template"
 	"net/http"
-	"os"
 	"runtime"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -30,19 +27,11 @@ const (
 	maxMessageSize = 512
 )
 
-var (
-	// use default options
-	upgrader = websocket.Upgrader{}
-	// Addr
-	addr = flag.String("addr", ":8080", "http service address")
-	// PollPeriodFlag
-	pollPeriod = flag.Duration("period", 1000*time.Millisecond, "Poll Period in Milliseconds.")
+// use default options
+var upgrader = websocket.Upgrader{}
 
-	// Created Stats Struct.
-	Stats PC_stats
-	// logger
-	logger = logrus.New()
-)
+var Stats PC_stats
+var PollPeriod time.Duration
 
 type PC_stats struct {
 	CPU_Load   float64   `json:"cpu_load"`
@@ -51,40 +40,23 @@ type PC_stats struct {
 	Timestamp  time.Time `json:"timestamp"`
 }
 
-func init() {
+// Start starts 3 Goroutines that update the Global Variable "Stats", each pollPeriod
+func Start(pollPeriod time.Duration) error {
+
+	PollPeriod = pollPeriod
+
 	// Starte die Goroutines welche die Daten holen
-	go GetCPULoad(*pollPeriod)
-	go GetMemLoad(*pollPeriod)
-	go GetGoroutines(*pollPeriod)
+	go GetCPULoad(&Stats, pollPeriod)
+	go GetMemLoad(&Stats, pollPeriod)
+	go GetGoroutines(&Stats, pollPeriod)
 
-	// Output to stdout instead of the default stderr
-	// Can be any io.Writer, see below for File example
-	logger.SetOutput(os.Stdout)
-
-	// Only log the warning severity or above.
-	logger.SetLevel(logrus.DebugLevel)
-	//
-	logger.SetFormatter(
-		&logrus.TextFormatter{TimestampFormat: "2006/01/02 - 15:04:05",
-			FullTimestamp: true})
-}
-
-func main() {
-
-	flag.Parse()
-
-	http.HandleFunc("/echo", echo)
-	http.HandleFunc("/", home)
-
-	logger.Info("Listening on ", *addr)
-	logger.Fatal(http.ListenAndServe(*addr, nil))
-
+	return nil
 }
 
 // GetMemLoad changes PC_Stats.Mem_Load each interval.
 //
 // This goroutine also writes the Timestamp to PC_Stats.
-func GetMemLoad(interval time.Duration) {
+func GetMemLoad(Stats *PC_stats, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 
 	for {
@@ -101,7 +73,7 @@ func GetMemLoad(interval time.Duration) {
 }
 
 // GetCPULoad changes PC_StatsCPU_Load each interval.
-func GetCPULoad(interval time.Duration) {
+func GetCPULoad(Stats *PC_stats, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 
 	for {
@@ -117,7 +89,7 @@ func GetCPULoad(interval time.Duration) {
 }
 
 // GetCPULoad changes PC_StatsCPU_Load each interval.
-func GetGoroutines(interval time.Duration) {
+func GetGoroutines(Stats *PC_stats, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 
 	for {
@@ -135,7 +107,7 @@ func GetGoroutines(interval time.Duration) {
 // on a dead connection and fail.
 func MessageReceiver(ctx context.Context, conn *websocket.Conn, close chan bool) {
 	defer func() {
-		logger.Debug("Listen Function exited.")
+		// logger.Debug("Listen Function exited.")
 	}()
 
 	conn.SetReadLimit(maxMessageSize)
@@ -146,7 +118,7 @@ func MessageReceiver(ctx context.Context, conn *websocket.Conn, close chan bool)
 	for {
 		_, _, err := conn.ReadMessage()
 		if err != nil {
-			logger.Info("Websocket Connection closed.")
+			// logger.Info("Websocket Connection closed.")
 
 			close <- true
 			return
@@ -161,7 +133,7 @@ func MessageReceiver(ctx context.Context, conn *websocket.Conn, close chan bool)
 // Additionally it regularly writes a PingMessage to the connection.
 func MessageWriter(ctx context.Context, conn *websocket.Conn, poll *time.Ticker, pong *time.Ticker) {
 	defer func() {
-		logger.Debug("Write Function exited.")
+		// logger.Debug("Write Function exited.")
 	}()
 
 	for {
@@ -171,24 +143,24 @@ func MessageWriter(ctx context.Context, conn *websocket.Conn, poll *time.Ticker,
 
 			w, err := conn.NextWriter(websocket.TextMessage)
 			if err != nil {
-				logger.Warn("c.NextWriter did not work", err)
+				// logger.Warn("c.NextWriter did not work", err)
 			}
 			json, err := json.Marshal(Stats)
 			if err != nil {
-				logger.Fatalln("Marshalling did not work", err)
+				// logger.Fatalln("Marshalling did not work", err)
 			}
 
 			w.Write(json)
 
 			if err := w.Close(); err != nil {
-				logger.Warn("io.Writer Close did not work", err)
+				// logger.Warn("io.Writer Close did not work", err)
 			}
 
 		case <-pong.C:
 
 			conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				logger.Warn("c.WriteMessage did not work", err)
+				// logger.Warn("c.WriteMessage did not work", err)
 			}
 		case <-ctx.Done():
 			return
@@ -196,25 +168,25 @@ func MessageWriter(ctx context.Context, conn *websocket.Conn, poll *time.Ticker,
 	}
 }
 
-// echo implements to Websocket Logik.
+// SendStatusUpdates implements to Websocket Logik.
 // So far I could not come up with an Idea how to stop MessageReceiver.
 // Dont know how if thats bad...
-func echo(w http.ResponseWriter, r *http.Request) {
+func SendUpdates(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		logger.Warn("Error while upgrading", err)
+		// logger.Warn("Error while upgrading", err)
 		return
 	}
 
-	logger.Info("WebsocketConnection established by:", r.RemoteAddr)
+	// logger.Info("WebsocketConnection established by:", r.RemoteAddr)
 
 	// Used to stop MessageWriter
 	ctx, cancelfunc := context.WithCancel(r.Context())
 	// Channel for PongMessages
 	pong := time.NewTicker(pingPeriod)
 	// Channel for Polling the CPU/Mem Stats
-	poll := time.NewTicker(*pollPeriod)
+	poll := time.NewTicker(PollPeriod)
 	// Channel to notify this function if Conn closed on Client Side
 	client_close := make(chan bool)
 
@@ -234,9 +206,9 @@ func echo(w http.ResponseWriter, r *http.Request) {
 	<-client_close
 }
 
-func home(w http.ResponseWriter, r *http.Request) {
+func SendTemplate(w http.ResponseWriter, r *http.Request) {
 	// Das hier läuft zweimail weil, /favicon.ico auch hierher geroutete wird.
-	logger.Info("Connection", r.RemoteAddr)
+	// logger.Info("Connection", r.RemoteAddr)
 	homeTemplate.Execute(w, nil)
 }
 

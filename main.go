@@ -10,8 +10,6 @@ import (
 	"runtime"
 	"time"
 
-	_ "net/http/pprof"
-
 	"github.com/gorilla/websocket"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
@@ -102,7 +100,7 @@ func GetMemLoad(interval time.Duration) {
 	}
 }
 
-// GetCPUoad changes PC_StatsCPU_Load each interval.
+// GetCPULoad changes PC_StatsCPU_Load each interval.
 func GetCPULoad(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 
@@ -118,7 +116,7 @@ func GetCPULoad(interval time.Duration) {
 	}
 }
 
-// GetCPUoad changes PC_StatsCPU_Load each interval.
+// GetCPULoad changes PC_StatsCPU_Load each interval.
 func GetGoroutines(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 
@@ -131,7 +129,7 @@ func GetGoroutines(interval time.Duration) {
 	}
 }
 
-// This funcion is needed to listen on the Closes from the Client side.
+// MessageReceiver is needed to listen on the Closes from the Client side.
 //
 // If you don´t listen to those messages, the Programm will try to write,
 // on a dead connection and fail.

@@ -1,7 +1,7 @@
 on: [push]
-name: Test
+name: Build
 jobs:
-  test:
+  build:
     strategy:
       matrix:
         go-version: [1.18.x]
@@ -12,4 +12,4 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
     - uses: actions/checkout@v3
-    - run: go test ./... -v
+    - run: go build .

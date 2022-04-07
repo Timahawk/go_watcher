@@ -18,9 +18,13 @@ func init() {
 	// This starts the default server
 	go SetupTestEnv()
 
+	// This is for not Spamming Everything with ConnectionMessages.
 	logger.SetLevel(logrus.WarnLevel)
 }
 
+// SetupTestEnv creates the Server and listens for Requests.
+//
+// Tests can because of this only be run if the Server is stopped.
 func SetupTestEnv() {
 	http.HandleFunc("/echo", echo)
 	http.HandleFunc("/", home)
@@ -30,7 +34,6 @@ func SetupTestEnv() {
 }
 
 func Test_home(t *testing.T) {
-
 	assert.HTTPStatusCode(t, home, "GET", "localhost:8080", nil, 200)
 
 	res := assert.HTTPBody(home, "GET", "localhost:8080", nil)

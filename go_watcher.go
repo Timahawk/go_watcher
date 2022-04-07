@@ -206,13 +206,18 @@ func SendUpdates(w http.ResponseWriter, r *http.Request) {
 	<-client_close
 }
 
+// SendTemplate sends a HMTL which creates a Websocket Connection an updates Graphs.
+// To function the SendUpdate function needs to added as *"echo"* and located relativ to
+// this Path. For example:
+//		http.HandleFunc("/echo", SendUpdates)
+//		http.HandleFunc("/", SendTemplate)
 func SendTemplate(w http.ResponseWriter, r *http.Request) {
 	// Das hier läuft zweimail weil, /favicon.ico auch hierher geroutete wird.
 	// logger.Info("Connection", r.RemoteAddr)
-	homeTemplate.Execute(w, nil)
+	HomeTemplate.Execute(w, nil)
 }
 
-var homeTemplate = template.Must(template.New("").Parse(`
+var HomeTemplate = template.Must(template.New("").Parse(`
 <!DOCTYPE html>
 <html>
 <head>
@@ -273,7 +278,7 @@ var homeTemplate = template.Must(template.New("").Parse(`
 			}
 		};
 
-		ws = new WebSocket("ws://" + document.location.host + "/echo");
+		ws = new WebSocket("ws://" + document.location.host  + document.location.pathname + "echo");
 
 		ws.onopen = function(evt) {
 			console.log("OPEN");

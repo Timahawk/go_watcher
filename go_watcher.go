@@ -278,7 +278,7 @@ var HomeTemplate = template.Must(template.New("").Parse(`
 			}
 		};
 
-		ws = new WebSocket("ws://" + document.location.host  + document.location.pathname + "echo");
+		ws = new WebSocket("wss://" + document.location.host  + document.location.pathname + "echo");
 
 		ws.onopen = function(evt) {
 			console.log("OPEN");

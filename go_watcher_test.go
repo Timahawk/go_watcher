@@ -53,13 +53,13 @@ func Test_home(t *testing.T) {
 // I think there should be a timeout be implemented into this function,
 // else the test might run forever.
 func Test_echo(t *testing.T) {
-	u := url.URL{Scheme: "wss", Host: "localhost:8080", Path: "/echo"}
+	u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/echo"}
 
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 
 	if err != nil {
 		// log.Fatal("dial:", err)
-		t.Errorfcl("Could not create the connection, %v", err)
+		t.Errorf("Could not create the connection, %v", err)
 	}
 	defer c.Close()
 
@@ -114,7 +114,7 @@ func Test_LotsOfConnections(t *testing.T) {
 }
 
 func CreateConnection(i int, fails chan int) {
-	u := url.URL{Scheme: "wss", Host: "localhost:8080", Path: "/echo"}
+	u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/echo"}
 
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 

@@ -280,7 +280,7 @@ var HomeTemplate = template.Must(template.New("").Parse(`
 
 		// Das hier weils wichtig ist ob https oder nicht.
 		// Browser erlauben KEIN downgrad also https zu ws!
-		if location.protocol === 'https:'{
+		if (location.protocol === 'https:'){
 			ws = new WebSocket("wss://" + document.location.host  + document.location.pathname + "echo");
 		} else {
 			ws = new WebSocket("ws://" + document.location.host  + document.location.pathname + "echo");

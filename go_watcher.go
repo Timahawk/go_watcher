@@ -341,7 +341,7 @@ var HomeTemplate = template.Must(template.New("").Parse(`
 			// create data object with default value
             go_data = google.visualization.arrayToDataTable([
                 ["Year", "Goroutines"],
-                [0, 100]
+                [0, 25]
             ]);
 
 			
